@@ -1,12 +1,11 @@
-
 """
 FastAPI dependencies for dependency injection.
 Provides database sessions, current user authentication, etc.
 """
 
-from typing import Optional, Generator, AsyncGenerator
+from typing import AsyncGenerator, Optional
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError
 from app.database import AsyncSessionLocal
@@ -16,9 +15,8 @@ from app.models.user import User
 from app.repositories.user_repository import user_repository
 import uuid
 
-# OAuth2 scheme for token extraction from Authorization header
-# tokenUrl is the endpoint that provides the token
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# HTTPBearer for token authentication (shows "Authorize" button in Swagger)
+security = HTTPBearer()
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -36,9 +34,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
             yield session
-            await session.commit()
+            await session.commit()  # Commit if no errors
         except Exception:
-            await session.rollback()
+            await session.rollback()  # Rollback on error
             raise
         finally:
             await session.close()
@@ -46,14 +44,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> User:
     """
     Dependency that gets current authenticated user from JWT token.
     
     Args:
         db: Database session
-        token: JWT token from Authorization header
+        credentials: HTTPBearer credentials with token
         
     Returns:
         Current user
@@ -73,6 +71,9 @@ async def get_current_user(
     )
     
     try:
+        # Extract token from credentials
+        token = credentials.credentials
+        
         # Verify token and extract user_id
         user_id_str = verify_token(token, ACCESS_TOKEN_TYPE)
         
@@ -81,7 +82,7 @@ async def get_current_user(
         
         user_id = uuid.UUID(user_id_str)
         
-    except (JWTError, ValueError):
+    except (JWTError, ValueError, AttributeError):
         raise credentials_exception
     
     # Get user from database
@@ -152,7 +153,7 @@ async def get_current_verified_user(
 # Optional: Dependency that allows unauthenticated access but provides user if authenticated
 async def get_current_user_optional(
     db: AsyncSession = Depends(get_db),
-    token: Optional[str] = Depends(oauth2_scheme)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
 ) -> Optional[User]:
     """
     Dependency that optionally gets current user.
@@ -160,7 +161,7 @@ async def get_current_user_optional(
     
     Args:
         db: Database session
-        token: Optional JWT token
+        credentials: Optional HTTPBearer credentials
         
     Returns:
         User if authenticated, None otherwise
@@ -172,10 +173,11 @@ async def get_current_user_optional(
                 return {"message": f"Hello {user.username}"}
             return {"message": "Hello guest"}
     """
-    if not token:
+    if not credentials:
         return None
     
     try:
+        token = credentials.credentials
         user_id_str = verify_token(token, ACCESS_TOKEN_TYPE)
         if user_id_str is None:
             return None
@@ -184,5 +186,5 @@ async def get_current_user_optional(
         user = await user_repository.get(db, user_id)
         return user
         
-    except (JWTError, ValueError):
+    except (JWTError, ValueError, AttributeError):
         return None

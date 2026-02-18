@@ -136,6 +136,46 @@ All errors follow a consistent format:
     redoc_standalone_src="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js"
 )
 
+# Custom OpenAPI schema to improve security documentation
+def custom_openapi():
+    """
+    Customize OpenAPI schema to add better security descriptions.
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    from fastapi.openapi.utils import get_openapi
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    
+    # Enhanced security scheme with clear instructions
+    openapi_schema["components"]["securitySchemes"] = {
+        "HTTPBearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": (
+                "JWT Authorization header using the Bearer scheme.\n\n"
+                "**How to authorize:**\n"
+                "1. Login via `/api/v1/auth/login` endpoint\n"
+                "2. Copy the `access_token` from the response\n"
+                "3. Paste it in the input field below (without 'Bearer' prefix)\n"
+                "4. Click 'Authorize'\n\n"
+                "Example token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            )
+        }
+    }
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 
 @app.get("/redoc", include_in_schema=False)
 async def custom_redoc():

@@ -23,8 +23,21 @@ class TaskBase(BaseModel):
 
 class TaskCreate(TaskBase):
     """Schema for creating a task."""
-    pass
-
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "title": "Complete project documentation",
+                    "description": "Write comprehensive API documentation with examples",
+                    "status": "TODO",
+                    "priority": "HIGH",
+                    "due_date": "2024-12-31T23:59:59",
+                    "category_id": "123e4567-e89b-12d3-a456-426614174000"
+                }
+            ]
+        }
+    )
 
 class TaskUpdate(BaseModel):
     """Schema for updating a task."""

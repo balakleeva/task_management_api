@@ -21,6 +21,19 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for user registration."""
     password: str = Field(..., min_length=8, max_length=100)
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "email": "john.doe@example.com",
+                    "username": "johndoe",
+                    "password": "securepass123",
+                    "full_name": "John Doe"
+                }
+            ]
+        }
+    )
 
 
 class UserUpdate(BaseModel):
@@ -54,8 +67,19 @@ class UserResponse(UserInDB):
 
 class UserLogin(BaseModel):
     """Schema for user login."""
-    username: str  # Can be username or email
+    username: str
     password: str
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "username": "johndoe",
+                    "password": "securepass123"
+                }
+            ]
+        }
+    )
 
 
 class PasswordResetRequest(BaseModel):

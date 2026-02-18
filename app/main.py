@@ -48,55 +48,298 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 
-# Create FastAPI app with enhanced documentation
+# Create FastAPI app with comprehensive documentation
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="""
-## Task Management API
+<div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; margin-bottom: 30px;">
+  <h1 style="margin: 0; font-size: 2.5em;">🚀 Task Management API</h1>
+  <p style="margin: 10px 0; font-size: 1.2em;">A production-ready REST API for task and project management with JWT authentication, advanced filtering, and comprehensive features.</p>
+  <p style="margin: 5px 0;"> 
+    <a href="/redoc" style="color: white;">Alternative Docs</a> | 
+    <a href="https://github.com/ravigupta97/task-management-api" style="color: white;">GitHub</a>
+  </p>
+</div>
 
-A production-ready REST API for task and project management.
+## 📊 API Features
 
-### Features
+### ✅ Task Management
+- **Full CRUD**: Create, Read, Update, Delete tasks
+- **Statuses**: TODO, IN_PROGRESS, COMPLETED, ARCHIVED
+- **Priorities**: LOW, MEDIUM, HIGH, URGENT
+- **Due Dates**: Track deadlines and overdue tasks
+- **Categories**: Organize tasks with custom categories
 
-* **Authentication**: JWT-based authentication with access and refresh tokens
-* **User Management**: Complete user profile management
-* **Tasks**: Full CRUD operations with advanced filtering and search
-* **Categories**: Organize tasks into custom categories
-* **Rate Limiting**: Protection against abuse and brute force attacks
-* **Performance Monitoring**: Track API performance and identify bottlenecks
+### 🔍 Advanced Filtering
+- Filter by status, priority, category
+- Date range filtering (due_date_from, due_date_to)
+- Full-text search in title and description
+- Combine multiple filters
 
-### Security
+### 📄 Pagination
+- Default: 10 items per page
+- Max: 100 items per page
+- Response includes: total count, page number, total pages
 
-All endpoints (except authentication and public endpoints) require a valid JWT token.
+### 🏷️ Categories
+- Create custom categories with colors
+- Unique category names per user
+- View task count per category
+- Color-code your tasks
 
-Include the token in the Authorization header:
-```
-Authorization: Bearer <your_access_token>
-```
+### 👤 User Management
+- View and update profile
+- Change password securely
+- Delete account (with cascade deletion of tasks)
+- Email verification system
 
-### Rate Limits
+---
 
-Different endpoints have different rate limits to prevent abuse:
+## 🛡️ Rate Limiting
 
-- Authentication endpoints: 3-10 requests/minute
-- Standard endpoints: 30-100 requests/minute
-- Health/metrics: 10 requests/minute
+This API implements rate limiting to prevent abuse:
 
-Rate limit info is included in response headers:
+| Endpoint Type | Rate Limit | Purpose |
+|--------------|------------|---------|
+| Registration | 5/minute | Prevent spam accounts |
+| Login | 5/minute | Prevent brute force attacks |
+| Password Reset | 3/minute | Prevent email bombing |
+| Token Refresh | 10/minute | Normal usage |
+| Standard Endpoints | 30-100/minute | Regular operations |
+
+**Rate limit info in response headers:**
 - `X-RateLimit-Limit`: Maximum requests allowed
-- `X-RateLimit-Remaining`: Requests remaining in window
+- `X-RateLimit-Remaining`: Requests remaining in current window
 - `X-RateLimit-Reset`: Time when the limit resets
 
-### Response Headers
+When you exceed the limit, you'll receive a `429 Too Many Requests` response.
 
-All responses include:
-- `X-Process-Time`: Request processing time in seconds
-- Rate limit headers (when applicable)
+---
 
-### Error Responses
+## 🔐 Authentication & Security
 
-All errors follow a consistent format:
+### How Authentication Works
+
+This API uses **JWT (JSON Web Tokens)** for authentication:
+
+1. **Access Token** (15 min expiry):
+   - Include in `Authorization: Bearer <token>` header
+   - Used for all API requests
+   - Short-lived for security
+
+2. **Refresh Token** (7 days expiry):
+   - Used to get new access tokens
+   - Longer-lived for convenience
+   - Use `POST /api/v1/auth/refresh` endpoint
+
+### Token Refresh Flow
+
+When your access token expires:
+
+1. Find `POST /api/v1/auth/refresh`
+2. Click **"Try it out"**
+3. Paste your `refresh_token`:
+```json
+   {
+     "refresh_token": "your_refresh_token_here"
+   }
+```
+4. Click **"Execute"**
+5. Copy the new `access_token`
+6. Click **🔓 Authorize** and update the token
+
+### Password Reset Flow
+
+1. **Request Reset**:
+   - Use `POST /api/v1/auth/password-reset/request`
+   - Enter your email
+   - Receive reset token (in response for testing, via email in production)
+
+2. **Confirm Reset**:
+   - Use `POST /api/v1/auth/password-reset/confirm`
+   - Paste the reset token and new password
+   - Your password is now updated
+
+---
+
+## 📋 Quick Start Guide - Test in 5 Minutes
+
+Follow these steps to test all features of this API:
+
+### Step 1️⃣: Register a New User
+
+1. Scroll down to **Authentication** section
+2. Find `POST /api/v1/auth/register`
+3. Click **"Try it out"**
+4. Replace the example with your data:
+```json
+   {
+     "email": "yourname@example.com",
+     "username": "yourusername",
+     "password": "securepass123",
+     "full_name": "Your Full Name"
+   }
+```
+5. Click **"Execute"**
+6. ✅ **Success**: You'll see a `201` response with your user details and a `verification_token`
+
+> 💡 **Note**: In production, you would receive the verification token via email. For testing, copy it from the response.
+
+---
+
+### Step 2️⃣: Verify Your Email (Optional but Recommended)
+
+1. Find `POST /api/v1/auth/verify-email`
+2. Click **"Try it out"**
+3. Paste the `verification_token` you received from registration:
+```json
+   {
+     "token": "paste_your_verification_token_here"
+   }
+```
+4. Click **"Execute"**
+5. ✅ **Success**: You'll see `"Email verified successfully"`
+
+---
+
+### Step 3️⃣: Login to Get Access Token
+
+1. Find `POST /api/v1/auth/login`
+2. Click **"Try it out"**
+3. Enter your credentials:
+```json
+   {
+     "username": "yourusername",
+     "password": "securepass123"
+   }
+```
+4. Click **"Execute"**
+5. ✅ **Success**: Copy the **`access_token`** from the response (it looks like: `eyJhbGciOiJIUzI1NiIs...`)
+
+---
+
+### Step 4️⃣: Authorize Swagger UI
+
+1. Click the **🔓 Authorize** button at the top right of this page
+2. In the popup, paste your `access_token` in the **Value** field
+3. Click **"Authorize"**
+4. Click **"Close"**
+
+> 🎉 **You're now authenticated!** All protected endpoints will now work. You'll see 🔒 icons become locked.
+
+---
+
+### Step 5️⃣: Create a Category
+
+1. Scroll to **Categories** section
+2. Find `POST /api/v1/categories/`
+3. Click **"Try it out"**
+4. Enter category data:
+```json
+   {
+     "name": "Work",
+     "color": "#FF5733"
+   }
+```
+5. Click **"Execute"**
+6. ✅ **Success**: Copy the `id` from the response (you'll need it for tasks)
+
+---
+
+### Step 6️⃣: Create Your First Task
+
+1. Scroll to **Tasks** section
+2. Find `POST /api/v1/tasks/`
+3. Click **"Try it out"**
+4. Enter task data:
+```json
+   {
+     "title": "Complete API documentation",
+     "description": "Write comprehensive docs for the API",
+     "status": "TODO",
+     "priority": "HIGH",
+     "due_date": "2024-12-31T23:59:59",
+     "category_id": "paste_category_id_here"
+   }
+```
+5. Click **"Execute"**
+6. ✅ **Success**: Your first task is created!
+
+---
+
+### Step 7️⃣: Get All Your Tasks
+
+1. Find `GET /api/v1/tasks/`
+2. Click **"Try it out"**
+3. Click **"Execute"** (no input needed)
+4. ✅ **Success**: You'll see all your tasks with pagination info
+
+---
+
+### Step 8️⃣: Try Advanced Features
+
+**🔍 Filter Tasks:**
+1. In `GET /api/v1/tasks/`, try these parameters:
+   - `status`: `TODO`
+   - `priority`: `HIGH`
+   - `limit`: `10`
+2. Click **"Execute"**
+
+**🔎 Search Tasks:**
+1. In `GET /api/v1/tasks/`, use:
+   - `search`: `documentation`
+2. Click **"Execute"**
+
+**📊 Get Statistics:**
+1. Find `GET /api/v1/tasks/statistics`
+2. Click **"Try it out"** → **"Execute"**
+3. See your task breakdown by status
+
+**✏️ Update a Task:**
+1. Find `PUT /api/v1/tasks/{task_id}`
+2. Enter your task ID (from Step 6)
+3. Update fields:
+```json
+   {
+     "status": "IN_PROGRESS",
+     "priority": "URGENT"
+   }
+```
+4. Click **"Execute"**
+
+**🗑️ Delete a Task:**
+1. Find `DELETE /api/v1/tasks/{task_id}`
+2. Enter a task ID
+3. Click **"Execute"**
+
+---
+
+## 📋 Response Format
+
+### Success Response
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "title": "Complete API documentation",
+  "status": "TODO",
+  "created_at": "2024-02-14T10:00:00",
+  ...
+}
+```
+
+### Paginated Response
+```json
+{
+  "items": [...],
+  "total": 45,
+  "page": 1,
+  "page_size": 10,
+  "total_pages": 5
+}
+```
+
+### Error Response
 ```json
 {
   "detail": "Error description",
@@ -105,35 +348,159 @@ All errors follow a consistent format:
   }
 }
 ```
+
+## 💡 Pro Tips
+
+### 1. Use Task Filters Efficiently
+Combine multiple filters for precise results:
+```
+GET /api/v1/tasks/?status=TODO&priority=HIGH&category_id=xxx&limit=20
+```
+
+### 2. Search Across Tasks
+Search works on both title and description:
+```
+GET /api/v1/tasks/?search=meeting
+```
+
+### 3. Track Overdue Tasks
+Get all overdue tasks instantly:
+```
+GET /api/v1/tasks/overdue
+```
+
+### 4. Monitor Your Progress
+Check task statistics:
+```
+GET /api/v1/tasks/statistics
+```
+
+### 5. Quick Status Updates
+Use PATCH endpoints for faster updates:
+```
+PATCH /api/v1/tasks/{task_id}/status?new_status=COMPLETED
+PATCH /api/v1/tasks/{task_id}/priority?new_priority=URGENT
+```
+---
+
+## 🔧 Testing Different Scenarios
+
+### Test 1: Create Multiple Tasks
+Create 5-10 tasks with different:
+- Statuses (TODO, IN_PROGRESS, COMPLETED)
+- Priorities (LOW, MEDIUM, HIGH, URGENT)
+- Categories (Work, Personal, Urgent)
+
+### Test 2: Filter and Search
+Try filtering by:
+- Status only
+- Priority only
+- Category only
+- Combination of all three
+- Search term
+
+### Test 3: Pagination
+1. Create 25+ tasks
+2. Use `GET /api/v1/tasks/?limit=10&skip=0` (page 1)
+3. Then `skip=10` (page 2), `skip=20` (page 3)
+
+### Test 4: Date Filtering
+Create tasks with different due dates, then filter:
+```
+GET /api/v1/tasks/?due_date_from=2024-01-01&due_date_to=2024-12-31
+```
+
+### Test 5: Category Management
+1. Create category "Work"
+2. Assign tasks to it
+3. View category stats
+4. Delete category (tasks remain but category_id becomes null)
+
+---
+
+## 📖 Additional Resources
+
+- **Health Check**: `GET /health` - Check API and database status
+- **Metrics**: `GET /metrics` - View API performance metrics
+- **Alternative Docs**: Visit `/redoc` for a different documentation interface
+
+---
+
     """,
     docs_url="/docs",
     redoc_url=None,
     openapi_url="/openapi.json",
     lifespan=lifespan,
     responses={
-        400: {"description": "Bad Request"},
-        401: {"description": "Unauthorized"},
-        403: {"description": "Forbidden"},
-        404: {"description": "Not Found"},
-        409: {"description": "Conflict"},
-        422: {"description": "Validation Error"},
-        429: {"description": "Too Many Requests"},
-        500: {"description": "Internal Server Error"},
-        503: {"description": "Service Unavailable"}
+        200: {
+            "description": "Successful Response",
+            "content": {
+                "application/json": {
+                    "example": {"message": "Operation successful"}
+                }
+            }
+        },
+        400: {
+            "description": "Bad Request - Invalid input data"
+        },
+        401: {
+            "description": "Unauthorized - Missing or invalid authentication token"
+        },
+        403: {
+            "description": "Forbidden - Insufficient permissions"
+        },
+        404: {
+            "description": "Not Found - Resource doesn't exist"
+        },
+        409: {
+            "description": "Conflict - Resource already exists"
+        },
+        422: {
+            "description": "Validation Error - Invalid request data",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Validation error",
+                        "errors": [
+                            {
+                                "field": "email",
+                                "message": "Invalid email format",
+                                "type": "value_error"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        429: {
+            "description": "Too Many Requests - Rate limit exceeded"
+        },
+        500: {
+            "description": "Internal Server Error"
+        },
+        503: {
+            "description": "Service Unavailable"
+        }
     },
     contact={
         "name": "API Support",
-        "email": "support@taskmanagement.com"
+        "email": "support@taskmanagement.com",
+        "url": "https://github.com/ravigupta97/task_management_api"
     },
     license_info={
-        "name": "MIT",
+        "name": "MIT License",
         "url": "https://opensource.org/licenses/MIT"
     },
     swagger_ui_parameters={
         "syntaxHighlight.theme": "monokai",
-        "tryItOutEnabled": True
-    },
-    redoc_standalone_src="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js"
+        "tryItOutEnabled": True,
+        "filter": True,
+        "displayRequestDuration": True,
+        "docExpansion": "none",  # Collapsed by default
+        "defaultModelsExpandDepth": 2,
+        "defaultModelExpandDepth": 2,
+        "persistAuthorization": True  # Remember authorization between page refreshes
+    }
 )
 
 # Custom OpenAPI schema to improve security documentation

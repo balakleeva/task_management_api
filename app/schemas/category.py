@@ -22,8 +22,25 @@ class CategoryBase(BaseModel):
 
 class CategoryCreate(CategoryBase):
     """Schema for creating a category."""
-    pass
-
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "Work",
+                    "color": "#FF5733"
+                },
+                {
+                    "name": "Personal",
+                    "color": "#3498DB"
+                },
+                {
+                    "name": "Urgent",
+                    "color": "#E74C3C"
+                }
+            ]
+        }
+    )
 
 class CategoryUpdate(BaseModel):
     """Schema for updating a category."""

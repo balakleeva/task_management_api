@@ -58,7 +58,7 @@ app = FastAPI(
   <p style="margin: 10px 0; font-size: 1.2em;">A production-ready REST API for task and project management with JWT authentication, advanced filtering, and comprehensive features.</p>
   <p style="margin: 5px 0;"> 
     <a href="/redoc" style="color: white;">Alternative Docs</a> | 
-    <a href="https://github.com/ravigupta97/task-management-api" style="color: white;">GitHub</a>
+    <a href="https://github.com/ravigupta97/task_management_api" style="color: white;">GitHub</a>
   </p>
 </div>
 

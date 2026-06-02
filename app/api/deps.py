@@ -34,10 +34,11 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
             yield session
-            await session.commit()  # Commit if no errors
         except Exception:
-            await session.rollback()  # Rollback on error
+            await session.rollback()
             raise
+        else:
+            await session.commit()
         finally:
             await session.close()
 
@@ -146,6 +147,23 @@ async def get_current_verified_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email not verified. Please verify your email to access this resource."
+        )
+    return current_user
+
+
+async def get_current_admin_user(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    """
+    Dependency that ensures current user is an administrator.
+
+    Raises:
+        HTTPException: If user is not an admin
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
         )
     return current_user
 

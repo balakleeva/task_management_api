@@ -13,7 +13,8 @@ from app.config import settings
 from app.api.v1 import api_router
 from app.core.exceptions import AppException
 from app.core.rate_limiter import limiter, rate_limit_exceeded_handler
-from app.database import engine
+from app.database import engine, AsyncSessionLocal
+from app.services.admin_bootstrap import run_admin_startup
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -40,7 +41,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
-    
+
+    if settings.ENVIRONMENT != "test":
+        async with AsyncSessionLocal() as session:
+            try:
+                await run_admin_startup(session)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                logger.exception("Admin startup failed")
+                raise
+
     yield
     
     # Shutdown

@@ -51,6 +51,12 @@ class User(BaseModel):
         default=False,
         nullable=False
     )
+
+    is_admin = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
     
     # Additional profile fields (optional - can be extended)
     full_name = Column(String(100), nullable=True)

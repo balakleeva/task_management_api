@@ -32,4 +32,4 @@ RUN mkdir -p logs
 EXPOSE 10000
 
 # Run database migrations and start the application
-CMD alembic upgrade head && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:${PORT:-10000}
+CMD ["sh", "-c", "alembic upgrade head && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:${PORT:-10000}"]

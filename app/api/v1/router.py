@@ -5,6 +5,7 @@ Aggregates all route modules with enhanced documentation.
 
 from fastapi import APIRouter
 from app.api.v1 import auth, users, tasks, categories
+from app.api.v1.admin import tasks as admin_tasks
 
 # Create main API router
 api_router = APIRouter()
@@ -31,6 +32,11 @@ tags_metadata = [
         "description": "Category management operations. "
                       "Organize tasks into custom categories with color coding."
     },
+    {
+        "name": "Admin",
+        "description": "Administrator operations. "
+                      "Manage tasks across all users. Requires is_admin account."
+    },
 ]
 
 # Include sub-routers with prefixes and tags
@@ -56,4 +62,10 @@ api_router.include_router(
     categories.router,
     prefix="/categories",
     tags=["Categories"]
+)
+
+api_router.include_router(
+    admin_tasks.router,
+    prefix="/admin/tasks",
+    tags=["Admin"],
 )

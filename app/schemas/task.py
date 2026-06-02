@@ -5,7 +5,7 @@ Request/response validation for task-related endpoints.
 """
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import uuid
 from app.models.task import TaskStatus, TaskPriority
@@ -82,6 +82,34 @@ class TaskWithCategory(TaskInDB):
 class TaskListResponse(BaseModel):
     """Schema for paginated task list."""
     items: list[TaskResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class TaskOwnerSummary(BaseModel):
+    """Minimal owner info for admin task responses."""
+    id: uuid.UUID
+    email: str
+    username: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminTaskCreate(TaskCreate):
+    """Schema for admin creating a task on behalf of a user."""
+    user_id: uuid.UUID
+
+
+class AdminTaskResponse(TaskResponse):
+    """Task response with owner details for admin endpoints."""
+    owner: TaskOwnerSummary
+
+
+class AdminTaskListResponse(BaseModel):
+    """Schema for paginated admin task list."""
+    items: List[AdminTaskResponse]
     total: int
     page: int
     page_size: int

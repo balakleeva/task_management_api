@@ -9,6 +9,7 @@ from app.api.deps import get_db, get_current_active_user
 from app.schemas.user import (
     UserCreate,
     UserResponse,
+    UserMeResponse,
     UserLogin,
     PasswordResetRequest,
     PasswordReset,
@@ -275,7 +276,7 @@ async def resend_verification(
         )
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserMeResponse)
 @limiter.limit("30/minute")  # Standard rate limit for authenticated endpoints
 async def get_current_user_info(
     request: Request,
@@ -289,7 +290,7 @@ async def get_current_user_info(
     
     Requires valid access token in Authorization header.
     """
-    return UserResponse.model_validate(current_user)
+    return UserMeResponse.model_validate(current_user)
 
 
 @router.post("/logout", response_model=dict)

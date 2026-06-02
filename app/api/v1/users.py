@@ -7,7 +7,7 @@ Handles user profile operations (get, update, delete).
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db, get_current_active_user, get_current_verified_user
-from app.schemas.user import UserResponse, UserUpdate, UserUpdatePassword
+from app.schemas.user import UserResponse, UserMeResponse, UserUpdate, UserUpdatePassword
 from app.repositories.user_repository import user_repository
 from app.core.security import verify_password, get_password_hash
 from app.core.exceptions import AlreadyExistsError, AuthenticationError
@@ -16,7 +16,7 @@ from app.models.user import User
 router = APIRouter()
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserMeResponse)
 async def get_my_profile(
     current_user: User = Depends(get_current_active_user)
 ):
@@ -25,7 +25,7 @@ async def get_my_profile(
     
     Requires authentication.
     """
-    return UserResponse.model_validate(current_user)
+    return UserMeResponse.model_validate(current_user)
 
 
 @router.put("/me", response_model=UserResponse)

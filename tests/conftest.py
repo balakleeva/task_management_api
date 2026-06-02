@@ -4,11 +4,15 @@ Pytest configuration and fixtures.
 Provides test database, test client, and test users.
 """
 
+import os
+
+os.environ.setdefault("ENVIRONMENT", "test")
+
 import pytest
-import asyncio
 from typing import AsyncGenerator, Generator
 
 from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     create_async_engine,
@@ -17,7 +21,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 from app.main import app
-from app.database import Base, get_db
+from app.database import Base
+from app.api.deps import get_db
 from app.config import settings
 from app.models.user import User
 from app.core.security import get_password_hash, create_access_token
@@ -30,50 +35,36 @@ TEST_DATABASE_URL = settings.DATABASE_URL.replace(
     "task_management_test",
 )
 
-# Create test engine
-test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    echo=False,
-    poolclass=NullPool,
-)
-
-# Create test session factory
-TestAsyncSessionLocal = async_sessionmaker(
-    test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
-
-
-# Configure pytest-asyncio event loop
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
 @pytest.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Create a fresh database for each test.
     Creates all tables before test, drops them after.
     """
-    # Create tables
-    async with test_engine.begin() as conn:
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        poolclass=NullPool,
+    )
+    session_factory = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Create session
-    async with TestAsyncSessionLocal() as session:
+    async with session_factory() as session:
         yield session
         await session.rollback()
 
-    # Drop tables
-    async with test_engine.begin() as conn:
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+    await engine.dispose()
 
 
 @pytest.fixture(scope="function")
@@ -93,6 +84,22 @@ def client(db_session: AsyncSession) -> Generator:
 
 
 @pytest.fixture
+async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    """Async HTTP client sharing the test DB session (same event loop)."""
+
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
 async def test_user(db_session: AsyncSession) -> User:
     """
     Create a test user.
@@ -104,6 +111,7 @@ async def test_user(db_session: AsyncSession) -> User:
         "full_name": "Test User",
         "is_active": True,
         "is_verified": True,
+        "is_admin": False,
     }
 
     user = await user_repository.create(db_session, obj_in=user_data)
@@ -125,6 +133,7 @@ async def test_user_unverified(db_session: AsyncSession) -> User:
         "full_name": "Unverified User",
         "is_active": True,
         "is_verified": False,
+        "is_admin": False,
     }
 
     user = await user_repository.create(db_session, obj_in=user_data)
@@ -132,6 +141,49 @@ async def test_user_unverified(db_session: AsyncSession) -> User:
     await db_session.refresh(user)
 
     return user
+
+
+@pytest.fixture
+async def admin_user(db_session: AsyncSession) -> User:
+    """Create an admin test user."""
+    user_data = {
+        "email": "admin@example.com",
+        "username": "adminuser",
+        "hashed_password": get_password_hash("testpass123"),
+        "full_name": "Admin User",
+        "is_active": True,
+        "is_verified": True,
+        "is_admin": True,
+    }
+    user = await user_repository.create(db_session, obj_in=user_data)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+async def other_user(db_session: AsyncSession) -> User:
+    """Create a second non-admin user."""
+    user_data = {
+        "email": "other@example.com",
+        "username": "otheruser",
+        "hashed_password": get_password_hash("testpass123"),
+        "full_name": "Other User",
+        "is_active": True,
+        "is_verified": True,
+        "is_admin": False,
+    }
+    user = await user_repository.create(db_session, obj_in=user_data)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def admin_headers(admin_user: User) -> dict:
+    """Authorization headers for admin user."""
+    token = create_access_token(data={"sub": str(admin_user.id)})
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture

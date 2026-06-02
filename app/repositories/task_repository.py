@@ -6,7 +6,8 @@ Extends BaseRepository with task-specific queries, filtering, and search.
 
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, and_
+from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 from datetime import datetime
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.repositories.base import BaseRepository
@@ -71,6 +72,75 @@ class TaskRepository(BaseRepository[Task]):
             )
         )
         return result.scalar_one_or_none()
+
+    async def get_by_id_with_owner(
+        self,
+        db: AsyncSession,
+        task_id: uuid.UUID,
+    ) -> Optional[Task]:
+        """Get task by ID with owner relationship loaded."""
+        result = await db.execute(
+            select(Task)
+            .options(selectinload(Task.owner))
+            .where(Task.id == task_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_all_with_filters(
+        self,
+        db: AsyncSession,
+        *,
+        user_id: Optional[uuid.UUID] = None,
+        status: Optional[TaskStatus] = None,
+        priority: Optional[TaskPriority] = None,
+        category_id: Optional[uuid.UUID] = None,
+        search: Optional[str] = None,
+        due_date_from: Optional[datetime] = None,
+        due_date_to: Optional[datetime] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> Tuple[List[Task], int]:
+        """
+        Get tasks across all users with optional owner filter.
+        """
+        query = select(Task).options(selectinload(Task.owner))
+
+        if user_id:
+            query = query.where(Task.user_id == user_id)
+
+        if status:
+            query = query.where(Task.status == status)
+
+        if priority:
+            query = query.where(Task.priority == priority)
+
+        if category_id:
+            query = query.where(Task.category_id == category_id)
+
+        if search:
+            search_term = f"%{search}%"
+            query = query.where(
+                or_(
+                    Task.title.ilike(search_term),
+                    Task.description.ilike(search_term),
+                )
+            )
+
+        if due_date_from:
+            query = query.where(Task.due_date >= due_date_from)
+
+        if due_date_to:
+            query = query.where(Task.due_date <= due_date_to)
+
+        count_query = select(func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar_one()
+
+        query = query.order_by(Task.created_at.desc()).offset(skip).limit(limit)
+        result = await db.execute(query)
+        tasks = list(result.scalars().all())
+
+        return tasks, total
     
     async def get_with_filters(
         self,

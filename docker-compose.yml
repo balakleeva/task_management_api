@@ -1,0 +1,46 @@
+# PostgreSQL + API в Docker. Все настройки — в .env
+#
+# Запуск:
+#   docker compose up --build -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: task_management_db
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-task_admin} -d ${POSTGRES_DB:-task_management_dev}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task_management_api
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      PORT: "8000"
+      # Внутри сети Docker хост БД — имя сервиса db
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

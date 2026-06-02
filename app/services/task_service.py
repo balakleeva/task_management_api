@@ -7,9 +7,10 @@ from typing import List, Tuple, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from app.models.task import Task, TaskStatus, TaskPriority
-from app.schemas.task import TaskCreate, TaskUpdate
+from app.schemas.task import TaskCreate, TaskUpdate, AdminTaskCreate
 from app.repositories.task_repository import task_repository
 from app.repositories.category_repository import category_repository
+from app.repositories.user_repository import user_repository
 from app.core.exceptions import NotFoundError, ValidationError
 import uuid
 
@@ -204,6 +205,120 @@ class TaskService:
             },
             "overdue": overdue_count
         }
+
+    async def _validate_category_for_owner(
+        self,
+        db: AsyncSession,
+        owner_id: uuid.UUID,
+        category_id: Optional[uuid.UUID],
+    ) -> None:
+        if not category_id:
+            return
+        category = await category_repository.get_by_user_and_id(
+            db, owner_id, category_id
+        )
+        if not category:
+            raise NotFoundError("Category not found")
+
+    async def admin_get_task(
+        self,
+        db: AsyncSession,
+        task_id: uuid.UUID,
+    ) -> Task:
+        task = await task_repository.get_by_id_with_owner(db, task_id)
+        if not task:
+            raise NotFoundError("Task not found")
+        return task
+
+    async def admin_create_task(
+        self,
+        db: AsyncSession,
+        task_in: AdminTaskCreate,
+    ) -> Task:
+        owner = await user_repository.get(db, task_in.user_id)
+        if not owner:
+            raise NotFoundError("User not found")
+
+        await self._validate_category_for_owner(
+            db, task_in.user_id, task_in.category_id
+        )
+
+        task_data = task_in.model_dump(exclude={"user_id"})
+        task_data["user_id"] = task_in.user_id
+
+        task = await task_repository.create(db, obj_in=task_data)
+        await db.commit()
+        await db.refresh(task)
+        return await self.admin_get_task(db, task.id)
+
+    async def admin_update_task(
+        self,
+        db: AsyncSession,
+        task_id: uuid.UUID,
+        task_update: TaskUpdate,
+    ) -> Task:
+        task = await self.admin_get_task(db, task_id)
+
+        update_data = task_update.model_dump(exclude_unset=True)
+        if not update_data:
+            return task
+
+        if "category_id" in update_data and update_data["category_id"]:
+            await self._validate_category_for_owner(
+                db, task.user_id, update_data["category_id"]
+            )
+
+        updated_task = await task_repository.update(
+            db, db_obj=task, obj_in=update_data
+        )
+        await db.commit()
+        await db.refresh(updated_task)
+        return await self.admin_get_task(db, task_id)
+
+    async def admin_delete_task(
+        self,
+        db: AsyncSession,
+        task_id: uuid.UUID,
+    ) -> bool:
+        await self.admin_get_task(db, task_id)
+        result = await task_repository.delete(db, id=task_id)
+        await db.commit()
+        return result
+
+    async def admin_list_tasks(
+        self,
+        db: AsyncSession,
+        *,
+        user_id: Optional[uuid.UUID] = None,
+        status: Optional[TaskStatus] = None,
+        priority: Optional[TaskPriority] = None,
+        category_id: Optional[uuid.UUID] = None,
+        search: Optional[str] = None,
+        due_date_from: Optional[datetime] = None,
+        due_date_to: Optional[datetime] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> Tuple[List[Task], int]:
+        if user_id:
+            owner = await user_repository.get(db, user_id)
+            if not owner:
+                raise NotFoundError("User not found")
+
+        if category_id and user_id:
+            await self._validate_category_for_owner(db, user_id, category_id)
+
+        return await task_repository.get_all_with_filters(
+            db,
+            user_id=user_id,
+            status=status,
+            priority=priority,
+            category_id=category_id,
+            search=search,
+            due_date_from=due_date_from,
+            due_date_to=due_date_to,
+            skip=skip,
+            limit=limit,
+        )
 
 
 # Global service instance

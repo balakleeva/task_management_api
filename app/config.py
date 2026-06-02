@@ -5,7 +5,7 @@ Manages environment variables and application settings using Pydantic v2.
 """
 
 from typing import List
-from pydantic import AnyHttpUrl, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,9 +57,32 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: str | None = None
     EMAILS_FROM_NAME: str | None = None
     
+    # Default admin seed (creates admin user on startup if missing)
+    SEED_DEFAULT_ADMIN: bool = True
+    # In development, reset default admin password from env on each startup
+    SEED_DEFAULT_ADMIN_SYNC_PASSWORD: bool = True
+    DEFAULT_ADMIN_EMAIL: str = "admin@example.com"
+    DEFAULT_ADMIN_USERNAME: str = "admin"
+    DEFAULT_ADMIN_PASSWORD: str = "AdminChangeMe123!"
+    DEFAULT_ADMIN_FULL_NAME: str = "Default Admin"
+
+    # Additional admins: comma-separated emails (promote existing users on startup)
+    ADMIN_EMAILS: str = ""
+
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100
     AUTH_RATE_LIMIT_PER_MINUTE: int = 5
+
+    @property
+    def admin_emails_list(self) -> List[str]:
+        """Normalized list of admin emails from ADMIN_EMAILS."""
+        if not self.ADMIN_EMAILS.strip():
+            return []
+        return [
+            email.strip().lower()
+            for email in self.ADMIN_EMAILS.split(",")
+            if email.strip()
+        ]
     
     # Pydantic v2 configuration
     model_config = SettingsConfigDict(

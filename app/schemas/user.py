@@ -61,8 +61,13 @@ class UserInDB(UserBase):
 
 
 class UserResponse(UserInDB):
-    """Schema for user in API responses."""
+    """Schema for user in API responses (public profile; no admin flag)."""
     pass
+
+
+class UserMeResponse(UserResponse):
+    """Schema for the authenticated user's own profile."""
+    is_admin: bool = False
 
 
 class UserLogin(BaseModel):

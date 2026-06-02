@@ -6,7 +6,7 @@ Extends BaseRepository with user-specific queries.
 
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 from app.models.user import User
 from app.repositories.base import BaseRepository
 
@@ -29,7 +29,7 @@ class UserRepository(BaseRepository[User]):
             User instance or None
         """
         result = await db.execute(
-            select(User).where(User.email == email)
+            select(User).where(func.lower(User.email) == email.lower())
         )
         return result.scalar_one_or_none()
     

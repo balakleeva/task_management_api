@@ -23,8 +23,5 @@ email-validator==2.1.0        # Email validation
 # Environment Management
 python-dotenv==1.0.0          # .env file support
 
-# Rate Limiting
-slowapi==0.1.9                # Rate limiting middleware
-
 # Production Server
 gunicorn==21.2.0

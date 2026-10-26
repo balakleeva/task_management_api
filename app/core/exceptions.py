@@ -77,13 +77,6 @@ class InvalidTokenError(AppException):
         super().__init__(message=message, status_code=401)
 
 
-class RateLimitError(AppException):
-    """Raised when rate limit is exceeded."""
-    
-    def __init__(self, message: str = "Too many requests", retry_after: int = 60):
-        super().__init__(message=message, status_code=429, details={"retry_after": retry_after})
-
-
 class DatabaseError(AppException):
     """Raised when database operation fails."""
     

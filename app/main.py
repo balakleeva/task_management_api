@@ -8,11 +8,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
-from slowapi.errors import RateLimitExceeded
 from app.config import settings
 from app.api.v1 import api_router
 from app.core.exceptions import AppException
-from app.core.rate_limiter import limiter, rate_limit_exceeded_handler
 from app.database import engine, AsyncSessionLocal
 from app.services.admin_bootstrap import run_admin_startup
 import logging
@@ -104,27 +102,6 @@ app = FastAPI(
 - Change password securely
 - Delete account (with cascade deletion of tasks)
 - Email verification system
-
----
-
-## 🛡️ Rate Limiting
-
-This API implements rate limiting to prevent abuse:
-
-| Endpoint Type | Rate Limit | Purpose |
-|--------------|------------|---------|
-| Registration | 5/minute | Prevent spam accounts |
-| Login | 5/minute | Prevent brute force attacks |
-| Password Reset | 3/minute | Prevent email bombing |
-| Token Refresh | 10/minute | Normal usage |
-| Standard Endpoints | 30-100/minute | Regular operations |
-
-**Rate limit info in response headers:**
-- `X-RateLimit-Limit`: Maximum requests allowed
-- `X-RateLimit-Remaining`: Requests remaining in current window
-- `X-RateLimit-Reset`: Time when the limit resets
-
-When you exceed the limit, you'll receive a `429 Too Many Requests` response.
 
 ---
 
@@ -483,9 +460,6 @@ GET /api/v1/tasks/?due_date_from=2024-01-01&due_date_to=2024-12-31
                 }
             }
         },
-        429: {
-            "description": "Too Many Requests - Rate limit exceeded"
-        },
         500: {
             "description": "Internal Server Error"
         },
@@ -632,12 +606,6 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     )
 
 
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    """Handle rate limit exceeded errors."""
-    return rate_limit_exceeded_handler(request, exc)
-
-
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle unexpected errors."""
@@ -649,11 +617,6 @@ async def general_exception_handler(request: Request, exc: Exception):
             "errors": {}
         }
     )
-
-# Add rate limiter to app state
-app.state.limiter = limiter
-# Add exception handler for rate limit
-app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
 # CORS middleware (must be added BEFORE other middleware)
 app.add_middleware(
@@ -730,7 +693,6 @@ app.include_router(api_router, prefix="/api/v1")
 
 # Health check endpoint
 @app.get("/health", tags=["Health"])
-@limiter.limit("10/minute")  # Custom rate limit for health checks
 async def health_check(request: Request, response: Response,):
     """
     Health check endpoint with database connectivity test.
@@ -757,12 +719,9 @@ async def health_check(request: Request, response: Response,):
 
 # Metrics endpoint for monitoring
 @app.get("/metrics", tags=["Monitoring"])
-@limiter.limit("10/minute")
 async def get_metrics(request: Request, response: Response,):
     """
     Get API performance metrics.
-    
-    **Rate limit: 10 requests per minute**
     
     Returns:
     - Uptime
@@ -784,12 +743,9 @@ async def get_metrics(request: Request, response: Response,):
 
 # Reset metrics endpoint (admin only - in production, add authentication)
 @app.post("/metrics/reset", tags=["Monitoring"])
-@limiter.limit("1/hour")
 async def reset_metrics(request: Request, response: Response,):
     """
     Reset performance metrics.
-    
-    **Rate limit: 1 request per hour**
     
     ⚠️ In production, this should require admin authentication.
     """

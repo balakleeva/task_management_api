@@ -26,13 +26,11 @@ from app.core.exceptions import (
     InactiveUserError
 )
 from app.models.user import User
-from app.core.rate_limiter import limiter
 
 router = APIRouter()
 
 
 @router.post("/register", response_model=dict, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")  # Prevent spam registrations
 async def register(
     request: Request,
     response: Response,
@@ -42,8 +40,6 @@ async def register(
 ):
     """
     Register a new user.
-    
-    **Rate limit: 5 requests per minute**
     
     - **email**: Valid email address (unique)
     - **username**: Username (unique, 3-50 characters)
@@ -77,7 +73,6 @@ async def register(
 
 
 @router.post("/login", response_model=Token)
-@limiter.limit("5/minute")  # Prevent brute force attacks
 async def login(
     request: Request,
     response: Response,
@@ -86,8 +81,6 @@ async def login(
 ):
     """
     Login with username/email and password.
-    
-    **Rate limit: 5 requests per minute** (prevents brute force attacks)
     
     - **username**: Username or email address
     - **password**: User's password
@@ -111,7 +104,6 @@ async def login(
 
 
 @router.post("/refresh", response_model=RefreshTokenResponse)
-@limiter.limit("10/minute")  # More lenient for token refresh
 async def refresh_token(
     request: Request,
     response: Response,
@@ -120,8 +112,6 @@ async def refresh_token(
 ):
     """
     Refresh access token using refresh token.
-    
-    **Rate limit: 10 requests per minute**
     
     - **refresh_token**: Valid refresh token
     
@@ -143,7 +133,6 @@ async def refresh_token(
 
 
 @router.post("/password-reset/request", response_model=dict)
-@limiter.limit("3/minute")  # Strict limit for password reset
 async def request_password_reset(
     request: Request,
     response: Response,
@@ -153,8 +142,6 @@ async def request_password_reset(
 ):
     """
     Request password reset token.
-    
-    **Rate limit: 3 requests per minute**
     
     - **email**: User's email address
     
@@ -177,7 +164,6 @@ async def request_password_reset(
 
 
 @router.post("/password-reset/confirm", response_model=dict)
-@limiter.limit("5/minute")
 async def reset_password(
     request: Request,
     response: Response,
@@ -186,8 +172,6 @@ async def reset_password(
 ):
     """
     Reset password using reset token.
-    
-    **Rate limit: 5 requests per minute**
     
     - **token**: Password reset token
     - **new_password**: New password (minimum 8 characters)
@@ -206,7 +190,6 @@ async def reset_password(
 
 
 @router.post("/verify-email", response_model=dict)
-@limiter.limit("5/minute")
 async def verify_email(
     request: Request,
     response: Response,
@@ -215,8 +198,6 @@ async def verify_email(
 ):
     """
     Verify email using verification token.
-    
-    **Rate limit: 5 requests per minute**
     
     - **token**: Email verification token
     
@@ -234,7 +215,6 @@ async def verify_email(
 
 
 @router.post("/resend-verification", response_model=dict)
-@limiter.limit("3/minute")  # Strict limit to prevent spam
 async def resend_verification(
     request: Request,
     response: Response,
@@ -244,8 +224,6 @@ async def resend_verification(
 ):
     """
     Resend email verification token.
-    
-    **Rate limit: 3 requests per minute**
     
     - **email**: User's email address
     
@@ -277,7 +255,6 @@ async def resend_verification(
 
 
 @router.get("/me", response_model=UserMeResponse)
-@limiter.limit("30/minute")  # Standard rate limit for authenticated endpoints
 async def get_current_user_info(
     request: Request,
     response: Response,
@@ -286,15 +263,12 @@ async def get_current_user_info(
     """
     Get current authenticated user's information.
     
-    **Rate limit: 30 requests per minute**
-    
     Requires valid access token in Authorization header.
     """
     return UserMeResponse.model_validate(current_user)
 
 
 @router.post("/logout", response_model=dict)
-@limiter.limit("10/minute")
 async def logout(
     request: Request,
     response: Response,
@@ -302,8 +276,6 @@ async def logout(
 ):
     """
     Logout current user.
-    
-    **Rate limit: 10 requests per minute**
     
     Note: With JWT, logout is typically handled client-side by removing the token.
     For proper logout with token blacklisting, you would need to store tokens in database/redis.

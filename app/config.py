@@ -69,10 +69,6 @@ class Settings(BaseSettings):
     # Additional admins: comma-separated emails (promote existing users on startup)
     ADMIN_EMAILS: str = ""
 
-    # Rate Limiting
-    RATE_LIMIT_PER_MINUTE: int = 100
-    AUTH_RATE_LIMIT_PER_MINUTE: int = 5
-
     @property
     def admin_emails_list(self) -> List[str]:
         """Normalized list of admin emails from ADMIN_EMAILS."""
